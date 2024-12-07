@@ -12,3 +12,6 @@ class ViewText(ViewBase):
         :param text: Текст, который нужно отобразить
         """
         self.get_tui_adapter().update_text_display(text)
+    
+    def get_width(self) -> int:
+        return self.get_tui_adapter().width

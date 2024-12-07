@@ -26,14 +26,20 @@ class InputCommand(ICommand):
                     }
         elif key == 10:  # Enter (перенос строки)
             char = '\n'
-            cur_input_x = self.base_controller.models['cursor'].cursor_x
-            cur_y = self.base_controller.models['cursor'].cursor_y
+            cx = self.base_controller.models['cursor'].cursor_x
+            cy = self.base_controller.models['cursor'].cursor_y
+            
+            pos_x = self.base_controller.models['cursor'].posx
+            pos_y = self.base_controller.models['cursor'].posy
+            
+            cx = 0
+            cy += 1
             
             return {
                 'model': ['text', 'cursor'],
                 'update': {
-                    'update_cursor': {'dir': 'e', 'max_x': 0, 'dy': cur_y + 1},
-                    'update_text': {'enter': 1,'text': char, 'pos_x': cur_input_x, 'pos_y': cur_y},
+                    'update_cursor': {'dir': 'e', 'cx': cx, 'cy': cy, 'pos_x': 0, 'pos_y': pos_y + 1},
+                    'update_text': {'enter': 1,'text': char, 'pos_x': pos_x, 'pos_y': pos_y},
                 }
             }
         elif key == 8:  # Backspace
@@ -88,7 +94,7 @@ class InputCommand(ICommand):
                     }
                 }
     
-    def move_cursor_up(self):
+    """def move_cursor_up(self):
         curr_y = max(0, self.base_controller.models['cursor'].cursor_y - 1)
         max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
         return {
@@ -96,9 +102,9 @@ class InputCommand(ICommand):
             'update': {
                 'update_cursor': {'dir': 'u', 'max_x': max_x, 'dy': curr_y}
             }
-        }
+        }"""
 
-    def move_cursor_down(self):
+    """def move_cursor_down(self):
         curr_y = min(len(self.base_controller.models['text'].lines) - 1, self.base_controller.models['cursor'].cursor_y + 1)
         max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
         return {
@@ -106,25 +112,121 @@ class InputCommand(ICommand):
             'update': {
                 'update_cursor': {'dir': 'd', 'max_x': max_x, 'dy': curr_y},
             }
-        }
+        }"""
+    def move_cursor_up(self):
+        rendered_lines, window_width = self.base_controller.models['text'].get_rendered_lines()
+        lines = self.base_controller.models['text'].lines
+        cy = self.base_controller.models['cursor'].cursor_y
+        cx = self.base_controller.models['cursor'].cursor_x
+        pos_x = self.base_controller.models['cursor'].posx
+        pos_y = self.base_controller.models['cursor'].posy
+        
+        if pos_y > 0:
+            if pos_x > len(lines[pos_y-1]):
+                if lines[pos_y-1][-1] == '\n':
+                    l = len(lines[pos_y-1]) - 1    
+                    pos_x = len(lines[pos_y-1]) - 1
+                else:
+                    l = len(lines[pos_y-1])
+                    pos_x = len(lines[pos_y-1])
+                cx = (l % window_width)
+            else:
+                cx = pos_x % window_width
+            offset = pos_x // window_width
+            pos_y -= 1
+            cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
+            #cx = (pos_x % window_width)
+            
+            return {
+                'model': ['cursor'], 
+                'update': {
+                    'update_cursor': {'dir': 'u', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                }
+            }
+        
+        
+    def move_cursor_down(self):
+        #window_width = self.base_controller.models['text'].max_len
+        rendered_lines, window_width = self.base_controller.models['text'].get_rendered_lines()
+        lines = self.base_controller.models['text'].lines
+        cy = self.base_controller.models['cursor'].cursor_y
+        cx = self.base_controller.models['cursor'].cursor_x
+        pos_x = self.base_controller.models['cursor'].posx
+        pos_y = self.base_controller.models['cursor'].posy
+        
+        if pos_y + 1 < len(self.base_controller.models['text'].lines):
+            if len(lines[pos_y + 1]) < pos_x:
+                if lines[pos_y+1][-1] == '\n':
+                    l = len(lines[pos_y+1]) - 1
+                    pos_x = len(lines[pos_y + 1]) - 1
+                else:
+                    l = len(lines[pos_y+1])
+                    pos_x = len(lines[pos_y + 1])
+                cx = (l % window_width)
+                
+            else:
+                cx = pos_x % window_width
+            offset = pos_x // window_width
+            pos_y += 1
+            cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
+            
+            return {
+                'model': ['cursor'], 
+                'update': {
+                    'update_cursor': {'dir': 'd', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                }
+            }
+        
+        
+        
 
+    
     def move_cursor_left(self):
-        pos_x = max(0, self.base_controller.models['cursor'].cursor_x - 1)
+        """pos_x = max(0, self.base_controller.models['cursor'].cursor_x - 1)
         curr_y = self.base_controller.models['cursor'].cursor_y
         return {
             'model': ['cursor'], 
             'update': {
                 'update_cursor': {'dir': 'l', 'max_x': pos_x, 'dy': curr_y}
             }
-        }
+        }"""
+        _, window_width = self.base_controller.models['text'].get_rendered_lines()
+        cx = self.base_controller.models['cursor'].cursor_x
+        cy = self.base_controller.models['cursor'].cursor_y
+        pos_x = self.base_controller.models['cursor'].posx
+        pos_y = self.base_controller.models['cursor'].posy
+        if pos_x - 1 >= 0:
+            cx -= 1
+            pos_x -= 1
+            if cx == -1:
+                cx = window_width - 1 #TODO mb +1
+                cy -= 1
+            return {
+                'model': ['cursor'], 
+                'update': {
+                    'update_cursor': {'dir': 'l', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                }
+            }
 
     def move_cursor_right(self):
-        len_ = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].cursor_y]) - 1 if self.base_controller.models['cursor'].cursor_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].cursor_y])
-        pos_x = min(len_, self.base_controller.models['cursor'].cursor_x + 1)
-        curr_y = self.base_controller.models['cursor'].cursor_y
-        return {
-            'model': ['cursor'], 
-            'update': {
-                'update_cursor': {'dir': 'r', 'max_x': pos_x, 'dy': curr_y}
+        #len_posy = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].pos_y]) - 1 if self.base_controller.models['cursor'].pos_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].pos_y])
+        #pos_x = min(len_posy, self.base_controller.models['cursor'].cursor_x + 1)
+        #curr_y = self.base_controller.models['cursor'].cursor_y
+        len_posy = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].posy]) - 1 if self.base_controller.models['cursor'].posy < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].posy])
+        _, window_width = self.base_controller.models['text'].get_rendered_lines()
+        cx = self.base_controller.models['cursor'].cursor_x
+        cy = self.base_controller.models['cursor'].cursor_y
+        pos_x = self.base_controller.models['cursor'].posx
+        pos_y = self.base_controller.models['cursor'].posy
+        if pos_x + 1 <= len_posy:
+            cx += 1
+            pos_x += 1
+            if cx == window_width:
+                cx = 0
+                cy += 1
+            return {
+                'model': ['cursor'], 
+                'update': {
+                    'update_cursor': {'dir': 'r', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                }
             }
-        }

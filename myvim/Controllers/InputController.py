@@ -39,12 +39,25 @@ class InputModeController(IController):
             return command.execute(key)
         else:
             char = chr(key)
+            
             cur_input_x = self.base_controller.models['cursor'].cursor_x
             cur_y = self.base_controller.models['cursor'].cursor_y
+            
+            cur_posx = self.base_controller.models['cursor'].posx
+            cur_posy = self.base_controller.models['cursor'].posy
+            _, window_width = self.base_controller.models['text'].get_rendered_lines()
+            
+            # Перенос строки
+            cur_input_x += 1
+            #cur_posx += 1
+            if cur_input_x == window_width:
+                cur_y += 1
+                cur_input_x = 0
+                
             return {
                 'model': ['text', 'cursor'],
                 'update': {
-                    'update_cursor': {'dir': 'r', 'max_x': cur_input_x + 1, 'dy': cur_y},
-                    'update_text': {'input': 1, 'text': char, 'pos_x': cur_input_x, 'pos_y': cur_y}
+                    'update_cursor': {'dir': 'r', 'cx': cur_input_x, 'cy': cur_y, 'pos_x': cur_posx + 1, 'pos_y': cur_posy},
+                    'update_text': {'input': 1, 'text': char, 'pos_x': cur_posx, 'pos_y': cur_posy}
                 }
             }

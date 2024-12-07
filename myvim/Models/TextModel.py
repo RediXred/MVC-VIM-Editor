@@ -7,7 +7,7 @@ class TextModel(BaseModel):
     def __init__(self):
         super().__init__()
         self.lines: List[str] = [""]
-
+        self.max_len = 0#self._observers[0].get_width()
 
     def update_data(self, update: Dict[str, Any]) -> None:
         text = update.get('text', '')
@@ -57,6 +57,15 @@ class TextModel(BaseModel):
             # Если внутри текущей строки, удалить символ на позиции курсора
             self.lines[pos_y] = self.lines[pos_y][:pos_x] + self.lines[pos_y][pos_x + 1:]
 
+    def get_rendered_lines(self) -> tuple[List[str], int]:
+        window_width = self._observers[0].get_width()
+        rendered_lines = []
+        for line in self.lines:
+            while len(line) > window_width:
+                rendered_lines.append(line[:window_width])
+                line = line[window_width:]
+            rendered_lines.append(line)
+        return (rendered_lines, window_width)
     
     def notify_observers(self) -> None:
         for observer in self._observers:
