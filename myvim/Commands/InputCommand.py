@@ -19,60 +19,112 @@ class InputCommand(ICommand):
             return self.move_cursor_right()
         elif key == 27:
             self.base_controller.switch_controller(self.mode)
-            return {'model': ['status_bar'], 
+            return {'model': ['cursor'], 
                     'update': {
-                        'update_status_bar': {'mode': self.mode, 'file_name': 'Untitled'}
+                        'update_cursor': {'switch': 1, 'mode': self.mode}
                         }
                     }
         elif key == 10:  # Enter (перенос строки)
+            char = '\n'
+            cur_input_x = self.base_controller.models['cursor'].cursor_x
+            cur_y = self.base_controller.models['cursor'].cursor_y
+            
             return {
-                'model': ['cursor', 'text', 'status_bar'],
+                'model': ['text', 'cursor'],
                 'update': {
-                    'update_cursor': {'dx': 0, 'dy': 1, 'max_y': 1},
-                    'update_text': {'text': '\n'},
-                    'update_status_bar': {'current_line': 1, 'total_lines': 1},
+                    'update_cursor': {'dir': 'e', 'max_x': 0, 'dy': cur_y + 1},
+                    'update_text': {'enter': 1,'text': char, 'pos_x': cur_input_x, 'pos_y': cur_y},
                 }
             }
         elif key == 8:  # Backspace
-            return {
-                'model': ['cursor', 'text', 'status_bar'],
-                'update': {
-                    'update_cursor': {'dx': -1, 'dy': 0, 'max_y': 0},
-                    'update_text': {'text': '\b'},
-                    'update_status_bar': {'current_line': 0, 'total_lines': 0}
+            char = '\b'
+            cur_input_x = self.base_controller.models['cursor'].cursor_x
+            cur_y = self.base_controller.models['cursor'].cursor_y
+            
+            if cur_input_x == 0 and cur_y > 0:
+                cur_y -= 1
+                prev_line_len = len(self.base_controller.models['text'].lines[cur_y])
+                cur_input_x = prev_line_len
+                self.base_controller.models['cursor'].total_lines -= 1
+                return {
+                        'model': ['text', 'cursor'],
+                        'update': {
+                            'update_cursor': {'dir': 'l', 'max_x': cur_input_x - 1, 'dy': cur_y},
+                            'update_text': {'backspace': 1, 'text': '\b', 'pos_x': 0, 'pos_y': cur_y+1},
+                        }
+                    }
+            elif cur_input_x > 0:
+                cur_input_x = max(0, cur_input_x - 1)
+                
+                return {
+                    'model': ['text', 'cursor'],
+                    'update': {
+                        'update_cursor': {'dir': 'l', 'max_x': cur_input_x, 'dy': cur_y},
+                        'update_text': {'backspace': 1, 'text': char, 'pos_x': cur_input_x + 1 if cur_input_x > 0 else 1, 'pos_y': cur_y},
+                    }
                 }
-            }
+        elif key == 330:  # Delete
+            char = ' '  # Delete character is represented as an empty string
+            cur_input_x = self.base_controller.models['cursor'].cursor_x
+            cur_y = self.base_controller.models['cursor'].cursor_y
+
+            if cur_input_x == len(self.base_controller.models['text'].lines[cur_y])-1 and cur_y + 1 < len(self.base_controller.models['text'].lines):
+                # If at the end of the current line and there is a next line, merge lines
+                self.base_controller.models['cursor'].total_lines -= 1
+                return {
+                    'model': ['text', 'cursor'],
+                    'update': {
+                        'update_cursor': {'dir': 'n', 'max_x': cur_input_x, 'dy': cur_y},
+                        'update_text': {'delete': 1, 'text': char, 'pos_x': cur_input_x, 'pos_y': cur_y + 1},
+                    }
+                }
+            elif cur_input_x < len(self.base_controller.models['text'].lines[cur_y]):
+                # If inside the current line, delete the character at the cursor position
+                return {
+                    'model': ['text', 'cursor'],
+                    'update': {
+                        'update_cursor': {'dir': 'n', 'max_x': cur_input_x, 'dy': cur_y},
+                        'update_text': {'delete': 1, 'text': char, 'pos_x': cur_input_x, 'pos_y': cur_y},
+                    }
+                }
     
     def move_cursor_up(self):
+        curr_y = max(0, self.base_controller.models['cursor'].cursor_y - 1)
+        max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
         return {
-            'model': ['cursor', 'status_bar'], 
+            'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': 0, 'dy': -1,'max_y': 0},
-                'update_status_bar': {'current_line': -1, 'total_lines': 0}
+                'update_cursor': {'dir': 'u', 'max_x': max_x, 'dy': curr_y}
             }
         }
 
     def move_cursor_down(self):
+        curr_y = min(len(self.base_controller.models['text'].lines) - 1, self.base_controller.models['cursor'].cursor_y + 1)
+        max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
         return {
-            'model': ['cursor', 'status_bar'], 
+            'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': 0, 'dy': 1, 'max_y': 0},
-                'update_status_bar': {'current_line': 1, 'total_lines': 0}
+                'update_cursor': {'dir': 'd', 'max_x': max_x, 'dy': curr_y},
             }
         }
 
     def move_cursor_left(self):
+        pos_x = max(0, self.base_controller.models['cursor'].cursor_x - 1)
+        curr_y = self.base_controller.models['cursor'].cursor_y
         return {
             'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': -1, 'dy': 0, 'max_y': 0}
+                'update_cursor': {'dir': 'l', 'max_x': pos_x, 'dy': curr_y}
             }
         }
 
     def move_cursor_right(self):
+        len_ = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].cursor_y]) - 1 if self.base_controller.models['cursor'].cursor_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].cursor_y])
+        pos_x = min(len_, self.base_controller.models['cursor'].cursor_x + 1)
+        curr_y = self.base_controller.models['cursor'].cursor_y
         return {
             'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': 1, 'dy': 0, 'max_y': 0}
+                'update_cursor': {'dir': 'r', 'max_x': pos_x, 'dy': curr_y}
             }
         }

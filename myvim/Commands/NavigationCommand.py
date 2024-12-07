@@ -19,44 +19,51 @@ class NavigationCommand(ICommand):
             return self.move_cursor_right()
         elif key == 105:
             self.base_controller.switch_controller(self.mode)
-            return {'model': ['status_bar'], 
+            return {'model': ['cursor'], 
                     'update': {
-                        'update_status_bar': {'mode': self.mode, 'file_name': 'Untitled'}
+                        'update_cursor': {'switch': 1, 'mode': self.mode}
                         }
                     }
         else:
             return {'model': None, 'update': None}
     
     def move_cursor_up(self):
+        curr_y = max(0, self.base_controller.models['cursor'].cursor_y - 1)
+        max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
         return {
-            'model': ['cursor', 'status_bar'], 
+            'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': 0, 'dy': -1, 'max_y': 0},
-                'update_status_bar': {'current_line': -1, 'total_lines': 0}
+                'update_cursor': {'dir': 'u', 'max_x': max_x, 'dy': curr_y}
             }
         }
 
     def move_cursor_down(self):
+        curr_y = min(len(self.base_controller.models['text'].lines) - 1, self.base_controller.models['cursor'].cursor_y + 1)
+        max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
         return {
-            'model': ['cursor', 'status_bar'], 
+            'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': 0, 'dy': 1, 'max_y': 0},
-                'update_status_bar': {'current_line': 1, 'total_lines': 0}
+                'update_cursor': {'dir': 'd', 'max_x': max_x, 'dy': curr_y},
             }
         }
 
     def move_cursor_left(self):
+        pos_x = max(0, self.base_controller.models['cursor'].cursor_x - 1)
+        curr_y = self.base_controller.models['cursor'].cursor_y
         return {
             'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': -1, 'dy': 0, 'max_y': 0}
+                'update_cursor': {'dir': 'l', 'max_x': pos_x, 'dy': curr_y}
             }
         }
 
     def move_cursor_right(self):
+        len_ = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].cursor_y]) - 1 if self.base_controller.models['cursor'].cursor_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].cursor_y])
+        pos_x = min(len_, self.base_controller.models['cursor'].cursor_x + 1)
+        curr_y = self.base_controller.models['cursor'].cursor_y
         return {
             'model': ['cursor'], 
             'update': {
-                'update_cursor': {'dx': 1, 'dy': 0, 'max_y': 0}
+                'update_cursor': {'dir': 'r', 'max_x': pos_x, 'dy': curr_y}
             }
         }

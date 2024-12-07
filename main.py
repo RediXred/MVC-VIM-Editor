@@ -25,7 +25,7 @@ def main(stdscr: curses.window) -> None:
     
     text_model = TextModel()
     cursor_model = CursorModel()
-    status_bar_model = StatusBarModel()
+    #status_bar_model = StatusBarModel()
     
     adapter = CursesAdapter()
     adapter.set_screen(stdscr)
@@ -37,7 +37,8 @@ def main(stdscr: curses.window) -> None:
     
     text_model.add_observer(view_text)
     cursor_model.add_observer(view_cursor)
-    status_bar_model.add_observer(view_status_bar)
+    cursor_model.add_observer(view_status_bar)
+    #status_bar_model.add_observer(view_status_bar)
     
     input_handler = InputConsole(stdscr)
     
@@ -48,7 +49,7 @@ def main(stdscr: curses.window) -> None:
     
     base_controller.add_model('text', text_model)
     base_controller.add_model('cursor', cursor_model)
-    base_controller.add_model('status_bar', status_bar_model)
+    #base_controller.add_model('status_bar', status_bar_model)
     
     base_controller.switch_controller('navigation')
     

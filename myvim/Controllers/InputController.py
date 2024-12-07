@@ -17,8 +17,9 @@ class InputModeController(IController):
         self.commands[KEY_LEFT] = InputCommand(self.base_controller, 'input')
         self.commands[KEY_RIGHT] = InputCommand(self.base_controller, 'input')
         self.commands[27] = InputCommand(self.base_controller, 'navigation') #esc
-        self.commands[10] = InputCommand(self.base_controller, 'navigation') #enter
-        self.commands[8] = InputCommand(self.base_controller, 'navigation') #backspace
+        self.commands[10] = InputCommand(self.base_controller, 'input') #enter
+        self.commands[8] = InputCommand(self.base_controller, 'input') #backspace
+        self.commands[330] = InputCommand(self.base_controller, 'input') #del
         
     def handle_key(self, key: int) -> str:
         if key in self.commands:
@@ -38,11 +39,12 @@ class InputModeController(IController):
             return command.execute(key)
         else:
             char = chr(key)
+            cur_input_x = self.base_controller.models['cursor'].cursor_x
+            cur_y = self.base_controller.models['cursor'].cursor_y
             return {
-                'model': ['cursor', 'text', 'status_bar'],
+                'model': ['text', 'cursor'],
                 'update': {
-                    'update_cursor': {'dx': 1, 'dy': 0, 'max_y': 0},
-                    'update_text': {'text': char},
-                    'update_status_bar': {'current_line': 0, 'total_lines': 0}
+                    'update_cursor': {'dir': 'r', 'max_x': cur_input_x + 1, 'dy': cur_y},
+                    'update_text': {'input': 1, 'text': char, 'pos_x': cur_input_x, 'pos_y': cur_y}
                 }
             }
