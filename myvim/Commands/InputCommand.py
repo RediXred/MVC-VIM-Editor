@@ -67,6 +67,9 @@ class InputCommand(ICommand):
                 if cx == -1:
                     cx = window_width - 1
                     cy -= 1
+                    if self.base_controller.models['text'].scroll_top > 0:
+                        self.base_controller.models['text'].scroll_top -= 1
+                        cy += 1
             
                 return {
                     'model': ['text', 'cursor'],
@@ -84,10 +87,11 @@ class InputCommand(ICommand):
                         l = len(self.base_controller.models['text'].lines[pos_y - 1])
                         tmp = len(self.base_controller.models['text'].lines[pos_y - 1])
                     cx = l % window_width
-                    #if pos_x == len(self.base_controller.models['text'].lines[pos_y-1]) and self.base_controller.models['text'].lines[pos_y-1][-1] == '\n':
-                    #    pos_x -= 1
-                    #    cx -= 1
+
                     cy -= 1
+                    if self.base_controller.models['text'].scroll_top > 0:
+                        self.base_controller.models['text'].scroll_top -= 1
+                        cy += 1
                     self.base_controller.models['cursor'].total_lines -= 1
                     self.base_controller.models['cursor'].current_line -= 1
                     return {
@@ -106,6 +110,9 @@ class InputCommand(ICommand):
                     cx = tmp % window_width
                     if cx != 0:
                         cy -= 1
+                        if self.base_controller.models['text'].scroll_top > 0:
+                            self.base_controller.models['text'].scroll_top -= 1
+                            cy += 1
                     if self.base_controller.models['text'].lines[pos_y-1] == '\n':
                         tmp -= 1
                         cx -= 1
@@ -142,25 +149,6 @@ class InputCommand(ICommand):
                     }
                 }
     
-    """def move_cursor_up(self):
-        curr_y = max(0, self.base_controller.models['cursor'].cursor_y - 1)
-        max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
-        return {
-            'model': ['cursor'], 
-            'update': {
-                'update_cursor': {'dir': 'u', 'max_x': max_x, 'dy': curr_y}
-            }
-        }"""
-
-    """def move_cursor_down(self):
-        curr_y = min(len(self.base_controller.models['text'].lines) - 1, self.base_controller.models['cursor'].cursor_y + 1)
-        max_x = len(self.base_controller.models['text'].lines[curr_y]) - 1 if curr_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[curr_y])
-        return {
-            'model': ['cursor'], 
-            'update': {
-                'update_cursor': {'dir': 'd', 'max_x': max_x, 'dy': curr_y},
-            }
-        }"""
     def move_cursor_up(self):
         rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
         top_scroll = self.base_controller.models['text'].scroll_top
