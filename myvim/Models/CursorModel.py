@@ -64,6 +64,12 @@ class CursorModel(BaseModel):
             self.cursor_y = cy
             self.posx = pos_x
             self.posy = pos_y
+        if dir == 's':
+            self.current_line = 1
+            self.cursor_x = cx
+            self.cursor_y = cy
+            self.posx = pos_x
+            self.posy = pos_y
         """self.cursor_y = dy
         self.cursor_x = min(self.cursor_x, max_x)
         if dir == 'r':

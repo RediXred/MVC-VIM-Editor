@@ -16,7 +16,9 @@ class NavigationModeController(IController):
         self.commands[KEY_DOWN] = NavigationCommand(self.base_controller, 'navigation')
         self.commands[KEY_LEFT] = NavigationCommand(self.base_controller, 'navigation')
         self.commands[KEY_RIGHT] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands[105] = NavigationCommand(self.base_controller, 'input')
+        self.commands[105] = NavigationCommand(self.base_controller, 'input') # i
+        self.commands[48] = NavigationCommand(self.base_controller, 'edit') # 0
+        self.commands[36] = NavigationCommand(self.base_controller, 'edit') # $
 
     def handle_key(self, key: int) -> str:
         if key in self.commands:
@@ -34,4 +36,3 @@ class NavigationModeController(IController):
                 base_controller.switch_controller(command.mode)
             """
             return command.execute(key)
-        return "Команда не найдена"

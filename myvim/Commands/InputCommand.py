@@ -169,9 +169,11 @@ class InputCommand(ICommand):
                 #offset = offset_ - (px // window_width)
             if cy - offset <= 3: #TODO доделать смещение
                 if top_scroll - offset < 0:
-                   self.base_controller.models['text'].scroll_top = 0
-                   top_scroll = 0
-                   cy = offset
+                    cy -= offset
+                    cy += top_scroll
+                    self.base_controller.models['text'].scroll_top = 0
+                    top_scroll = 0
+                    #py - 1#offset 
                 else:
                     #cy -= offset#1
                     self.base_controller.models['text'].scroll_top -= offset#1
@@ -308,6 +310,7 @@ class InputCommand(ICommand):
         
         
         
+        top_scroll = self.base_controller.models['text'].scroll_top
         pos_x = self.base_controller.models['cursor'].posx
         pos_y = self.base_controller.models['cursor'].posy
         if pos_x - 1 >= 0:
@@ -316,10 +319,14 @@ class InputCommand(ICommand):
             if cx == -1:
                 cx = window_width - 1
                 cy -= 1
+                if cy <= 4:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                    cy += 1
+                    top_scroll -= 1
             return {
-                'model': ['cursor'], 
+                'model': ['text', 'cursor'], 
                 'update': {
-                    'update_cursor': {'dir': 'l', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                    'update_cursor': {'dir': 'l', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
+                    'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
                 }
             }
 
