@@ -32,6 +32,8 @@ class InputCommand(ICommand):
             pos_x = self.base_controller.models['cursor'].posx
             pos_y = self.base_controller.models['cursor'].posy
             
+            _, window_width = self.base_controller.models['text'].get_rendered_lines()
+            
             cx = 0
             cy += 1
             
@@ -42,33 +44,74 @@ class InputCommand(ICommand):
                     'update_text': {'enter': 1,'text': char, 'pos_x': pos_x, 'pos_y': pos_y},
                 }
             }
+        
         elif key == 8:  # Backspace
             char = '\b'
-            cur_input_x = self.base_controller.models['cursor'].cursor_x
-            cur_y = self.base_controller.models['cursor'].cursor_y
             
-            if cur_input_x == 0 and cur_y > 0:
-                cur_y -= 1
-                prev_line_len = len(self.base_controller.models['text'].lines[cur_y])
-                cur_input_x = prev_line_len
-                self.base_controller.models['cursor'].total_lines -= 1
-                return {
-                        'model': ['text', 'cursor'],
-                        'update': {
-                            'update_cursor': {'dir': 'l', 'max_x': cur_input_x - 1, 'dy': cur_y},
-                            'update_text': {'backspace': 1, 'text': '\b', 'pos_x': 0, 'pos_y': cur_y+1},
-                        }
-                    }
-            elif cur_input_x > 0:
-                cur_input_x = max(0, cur_input_x - 1)
-                
+            
+            cx = self.base_controller.models['cursor'].cursor_x
+            cy = self.base_controller.models['cursor'].cursor_y
+            
+            pos_x = self.base_controller.models['cursor'].posx
+            pos_y = self.base_controller.models['cursor'].posy
+            tmp = pos_x - 1
+            _, window_width = self.base_controller.models['text'].get_rendered_lines()
+
+            if pos_x - 1 >= 0:
+                cx -= 1
+                if cx == -1:
+                    cx = window_width - 1
+                    cy -= 1
+            
                 return {
                     'model': ['text', 'cursor'],
                     'update': {
-                        'update_cursor': {'dir': 'l', 'max_x': cur_input_x, 'dy': cur_y},
-                        'update_text': {'backspace': 1, 'text': char, 'pos_x': cur_input_x + 1 if cur_input_x > 0 else 1, 'pos_y': cur_y},
+                        'update_cursor': {'dir': 'l', 'cx': cx, 'cy': cy, 'pos_x': pos_x - 1, 'pos_y': pos_y},
+                        'update_text': {'backspace': 1,'text': char, 'pos_x': pos_x, 'pos_y': pos_y},
                     }
                 }
+            elif pos_x == 0 and pos_y > 0:
+                if self.base_controller.models['text'].lines[pos_y] == '' or self.base_controller.models['text'].lines[pos_y] == '\n':
+                    if self.base_controller.models['text'].lines[pos_y - 1][-1] == '\n':
+                        l = len(self.base_controller.models['text'].lines[pos_y - 1]) - 1
+                        tmp = len(self.base_controller.models['text'].lines[pos_y - 1]) - 1
+                    else:
+                        l = len(self.base_controller.models['text'].lines[pos_y - 1])
+                        tmp = len(self.base_controller.models['text'].lines[pos_y - 1])
+                    cx = l % window_width
+                    #if pos_x == len(self.base_controller.models['text'].lines[pos_y-1]) and self.base_controller.models['text'].lines[pos_y-1][-1] == '\n':
+                    #    pos_x -= 1
+                    #    cx -= 1
+                    cy -= 1
+                    self.base_controller.models['cursor'].total_lines -= 1
+                    self.base_controller.models['cursor'].current_line -= 1
+                    return {
+                        'model': ['text', 'cursor'],
+                        'update': {
+                            'update_cursor': {'dir': 'l', 'cx': cx, 'cy': cy, 'pos_x': tmp, 'pos_y': pos_y - 1},
+                            'update_text': {'backspace': 1,'text': char, 'pos_x': pos_x, 'pos_y': pos_y},
+                        }
+                    }
+                else: #MERGE LINES
+                    self.base_controller.models['cursor'].total_lines -= 1
+                    self.base_controller.models['cursor'].current_line -= 1
+                    
+                    
+                    tmp = len(self.base_controller.models['text'].lines[pos_y-1]) - 1 if (self.base_controller.models['text'].lines[pos_y-1][-1] == '\n' and len(self.base_controller.models['text'].lines[pos_y-1]) > 1) else len(self.base_controller.models['text'].lines[pos_y-1])
+                    cx = tmp % window_width
+                    if cx != 0:
+                        cy -= 1
+                    if self.base_controller.models['text'].lines[pos_y-1] == '\n':
+                        tmp -= 1
+                        cx -= 1
+                    return {
+                        'model': ['text', 'cursor'],
+                        'update': {
+                            'update_cursor': {'dir': 'l', 'cx': cx, 'cy': cy, 'pos_x': tmp, 'pos_y': pos_y - 1},
+                            'update_text': {'merge': 1,'text': char, 'pos_x': pos_x, 'pos_y': pos_y},
+                        }
+                    }
+                    
         elif key == 330:  # Delete
             char = ' '  # Delete character is represented as an empty string
             cur_input_x = self.base_controller.models['cursor'].cursor_x
@@ -123,7 +166,7 @@ class InputCommand(ICommand):
         
         if pos_y > 0:
             if pos_x > len(lines[pos_y-1]):
-                if lines[pos_y-1][-1] == '\n':
+                if len(lines[pos_y-1]) and lines[pos_y-1][-1] == '\n':
                     l = len(lines[pos_y-1]) - 1    
                     pos_x = len(lines[pos_y-1]) - 1
                 else:
@@ -132,6 +175,9 @@ class InputCommand(ICommand):
                 cx = (l % window_width)
             else:
                 cx = pos_x % window_width
+                if pos_x == len(lines[pos_y-1]) and len(lines[pos_y-1]) and lines[pos_y-1][-1] == '\n':
+                    pos_x -= 1
+                    cx -= 1
             offset = pos_x // window_width
             pos_y -= 1
             cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
@@ -156,7 +202,7 @@ class InputCommand(ICommand):
         
         if pos_y + 1 < len(self.base_controller.models['text'].lines):
             if len(lines[pos_y + 1]) < pos_x:
-                if lines[pos_y+1][-1] == '\n':
+                if len(lines[pos_y+1]) and lines[pos_y+1][-1] == '\n':
                     l = len(lines[pos_y+1]) - 1
                     pos_x = len(lines[pos_y + 1]) - 1
                 else:
@@ -166,6 +212,9 @@ class InputCommand(ICommand):
                 
             else:
                 cx = pos_x % window_width
+                if pos_x == len(lines[pos_y+1]) and len(lines[pos_y+1]) > 0 and lines[pos_y+1][-1] == '\n':
+                    pos_x -= 1
+                    cx -= 1
             offset = pos_x // window_width
             pos_y += 1
             cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
@@ -199,7 +248,7 @@ class InputCommand(ICommand):
             cx -= 1
             pos_x -= 1
             if cx == -1:
-                cx = window_width - 1 #TODO mb +1
+                cx = window_width - 1
                 cy -= 1
             return {
                 'model': ['cursor'], 

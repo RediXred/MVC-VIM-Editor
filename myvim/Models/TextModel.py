@@ -21,9 +21,17 @@ class TextModel(BaseModel):
             self.backspace(update['pos_x'], update['pos_y'])
         if 'delete' in update and update['delete'] == 1:
             self.delete_(update['pos_x'], update['pos_y'])
+        if 'merge' in update and update['merge'] == 1:
+            self.merge_lines(update['pos_y'], update['pos_x'])
         
         self.notify_observers()
     
+    def merge_lines(self, pos_y: int, pos_x: int) -> None:
+        if self.lines[pos_y-1][-1] == '\n':
+            self.lines[pos_y-1] = self.lines[pos_y-1][:-1]
+        self.lines[pos_y - 1] = self.lines[pos_y - 1] + self.lines[pos_y][pos_x:]
+        self.lines.pop(pos_y)
+        
     def insert_text(self, text: str, pos_x: int, pos_y: int) -> None:
         self.lines[pos_y] = self.lines[pos_y][:pos_x] + text + self.lines[pos_y][pos_x:]
     
@@ -33,14 +41,7 @@ class TextModel(BaseModel):
         self.lines.insert(pos_y + 1, temp)
     
     def backspace(self, pos_x: int, pos_y: int) -> None:
-        if self.lines[pos_y] == '' or self.lines[pos_y] == '\n':
-            if len(self.lines) == pos_y + 1:
-                self.lines.pop(pos_y)
-                self.lines[pos_y - 1] = self.lines[pos_y - 1][:-1]
-            else:
-                self.lines.pop(pos_y)
-        elif pos_x == 0 and pos_y > 0 and (self.lines[pos_y] != '\n' or self.lines[pos_y] != ''):
-            self.lines[pos_y - 1] = self.lines[pos_y - 1][:-1] + self.lines[pos_y]
+        if pos_x == 0 and pos_y > 0:
             self.lines.pop(pos_y)
         else:
             self.lines[pos_y] = self.lines[pos_y][:pos_x - 1] + self.lines[pos_y][pos_x:]
