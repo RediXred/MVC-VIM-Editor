@@ -168,14 +168,26 @@ class InputCommand(ICommand):
         cx = self.base_controller.models['cursor'].cursor_x
         if top_scroll > 0:
             px = self.base_controller.models['cursor'].posx
-            offset = px // window_width
-            if cy - offset < 3 : #TODO доделать смещение
-                cy -= 1
-                self.base_controller.models['text'].scroll_top -= 1
-                top_scroll -= 1
+            py = self.base_controller.models['cursor'].posy
+            
+            l = len(self.base_controller.models['text'].lines[py - 1])
+            l2 = len(self.base_controller.models['text'].lines[py])
+            offset_ = (l + window_width - 1) // window_width
+            if px > l:
+                offset = (px//window_width) + 1#offset_ - (px // window_width)
+            else:
+                offset = ((l + window_width - 1) // window_width)
+                #k = offset_ - (px // window_width)
+                #offset = offset_ - (px // window_width)
+            if cy - offset <= 3: #TODO доделать смещение
+                if top_scroll - offset < 0:
+                    offset = 0
+                cy -= offset#1
+                self.base_controller.models['text'].scroll_top -= offset#1
+                top_scroll -= offset#1
         
         lines = self.base_controller.models['text'].lines[top_scroll:]
-        
+        #lines = rendered_lines[top_scroll:]
         pos_x = self.base_controller.models['cursor'].posx
         pos_y = self.base_controller.models['cursor'].posy - top_scroll
         if pos_y > 0:
@@ -209,16 +221,34 @@ class InputCommand(ICommand):
         cy = self.base_controller.models['cursor'].cursor_y
         cx = self.base_controller.models['cursor'].cursor_x
         rendered_lines, window_width, window_height = self.base_controller.models['text'].get_rendered_lines()
-        #TODO доделать смещение
-        offset = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].posy]) // window_width - self.base_controller.models['cursor'].posx // window_width
-        if (cy + 1) % (window_height - 4) == 0: #TODO poch 4?
-            cy -= 1
-            self.base_controller.models['text'].scroll_top += 1
-        
-        
         top_scroll = self.base_controller.models['text'].scroll_top
-        lines = self.base_controller.models['text'].lines[top_scroll:]
+        #TODO доделать смещение
+        #offset = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].posy]) // window_width - self.base_controller.models['cursor'].posx // window_width
+        if self.base_controller.models['cursor'].posy + 1 < len(self.base_controller.models['text'].lines):
+            px = self.base_controller.models['cursor'].posx
+            py = self.base_controller.models['cursor'].posy# - top_scroll
+            #offset_ = sum((len(line) + window_width - 1) // window_width for line in self.base_controller.models['text'].lines[py])
+            l = len(self.base_controller.models['text'].lines[py])
+            l2 = len(self.base_controller.models['text'].lines[py + 1])
+            
+            if (px > l2):
+                k = (l + window_width - 1) // window_width
+                offset = (k - (px // window_width + 1)) + 1
+                offset += l2 // window_width
+            else:
+                offset_ = (l + window_width - 1) // window_width
+                offset = offset_
+            if (cy + offset) >= (window_height - 4):#(cy + offset) % (window_height - 4) == 0:
+                top_scroll += offset
+                
+                self.base_controller.models['text'].scroll_top += offset
+                #if (cy + 1) % (window_height - 4) == 0: #TODO poch 4?
+                cy -= offset#1
         
+        
+        
+        lines = self.base_controller.models['text'].lines[top_scroll:]
+        #rendered_lines = rendered_lines[top_scroll:]
         pos_x = self.base_controller.models['cursor'].posx
         pos_y = self.base_controller.models['cursor'].posy - top_scroll
         

@@ -76,7 +76,8 @@ class TextModel(BaseModel):
     
     def notify_observers(self) -> None:
         for observer in self._observers:
-            _, _, window_height = self.get_rendered_lines()
-            text = ''.join(self.lines[self.scroll_top:self.scroll_top + window_height - 1])
+            rendered_lines, _, window_height = self.get_rendered_lines()
+            text = ''.join(rendered_lines[self.scroll_top:self.scroll_top + window_height - 1])
+            #text = ''.join(self.lines[self.scroll_top:self.scroll_top + window_height - 1])
             #text = ''.join(self.lines)
             observer.update_text(text)
