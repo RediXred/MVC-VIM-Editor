@@ -181,15 +181,36 @@ class InputCommand(ICommand):
                 #offset = offset_ - (px // window_width)
             if cy - offset <= 3: #TODO доделать смещение
                 if top_scroll - offset < 0:
-                    offset = 0
-                cy -= offset#1
-                self.base_controller.models['text'].scroll_top -= offset#1
-                top_scroll -= offset#1
-        
-        lines = self.base_controller.models['text'].lines[top_scroll:]
-        #lines = rendered_lines[top_scroll:]
+                   self.base_controller.models['text'].scroll_top = 0
+                   top_scroll = 0
+                   cy = offset
+                else:
+                    #cy -= offset#1
+                    self.base_controller.models['text'].scroll_top -= offset#1
+                    top_scroll -= offset#1
+        else:
+            pos_y = self.base_controller.models['cursor'].posy
+            if pos_y > 0:
+                lines = self.base_controller.models['text'].lines
+                rendered_lines = rendered_lines[top_scroll:]
+                pos_x = self.base_controller.models['cursor'].posx
+                offset = pos_x // window_width
+                pos_y -= 1
+                l = len(lines[pos_y + 1])
+                l2 = len(lines[pos_y])
+                #cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
+                if pos_x > l2:
+                    offset = (pos_x//window_width) + 1#offset_ - (pos_x // window_width)
+                else:
+                    offset = ((l2 + window_width - 1) // window_width)
+                    #k = offset_ - (pos_x // window_width)
+                    #offset = offset_ - (pos_x // window_width)
+                cy -= offset
+                pos_y += 1
+        lines = self.base_controller.models['text'].lines
+        rendered_lines = rendered_lines[top_scroll:]
         pos_x = self.base_controller.models['cursor'].posx
-        pos_y = self.base_controller.models['cursor'].posy - top_scroll
+        pos_y = self.base_controller.models['cursor'].posy #- top_scroll
         if pos_y > 0:
             if pos_x > len(lines[pos_y-1]):
                 if len(lines[pos_y-1]) and lines[pos_y-1][-1] == '\n':
@@ -204,15 +225,12 @@ class InputCommand(ICommand):
                 if pos_x == len(lines[pos_y-1]) and len(lines[pos_y-1]) and lines[pos_y-1][-1] == '\n':
                     pos_x -= 1
                     cx -= 1
-            offset = pos_x // window_width
+                    
             pos_y -= 1
-            cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
-            #cx = (pos_x % window_width)
-            
             return {
                 'model': ['text','cursor'], 
                 'update': {
-                    'update_cursor': {'dir': 'u', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y + top_scroll},
+                    'update_cursor': {'dir': 'u', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
                     'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
                 }
             }
@@ -247,12 +265,27 @@ class InputCommand(ICommand):
         
         
         
-        lines = self.base_controller.models['text'].lines[top_scroll:]
-        #rendered_lines = rendered_lines[top_scroll:]
+        #lines = self.base_controller.models['text'].lines[top_scroll:]
+        lines = self.base_controller.models['text'].lines
+        rendered_lines = rendered_lines[top_scroll:]
         pos_x = self.base_controller.models['cursor'].posx
-        pos_y = self.base_controller.models['cursor'].posy - top_scroll
+        pos_y = self.base_controller.models['cursor'].posy #- top_scroll
         
         if pos_y + 1 < len(lines):
+            offset = pos_x // window_width
+            pos_y += 1
+            #cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
+            l = len(lines[pos_y-1])
+            l2 = len(lines[pos_y])
+            if pos_x > l2:
+                k = (l + window_width - 1) // window_width
+                offset = (k - (pos_x // window_width + 1)) + 1
+                offset += l2 // window_width
+            else:
+                offset_ = (l + window_width - 1) // window_width
+                offset = offset_
+            cy += offset
+            pos_y -= 1
             if len(lines[pos_y + 1]) < pos_x:
                 if len(lines[pos_y+1]) and lines[pos_y+1][-1] == '\n':
                     l = len(lines[pos_y+1]) - 1
@@ -267,14 +300,11 @@ class InputCommand(ICommand):
                 if pos_x == len(lines[pos_y+1]) and len(lines[pos_y+1]) > 0 and lines[pos_y+1][-1] == '\n':
                     pos_x -= 1
                     cx -= 1
-            offset = pos_x // window_width
             pos_y += 1
-            cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
-            
             return {
                 'model': ['text', 'cursor'], 
                 'update': {
-                    'update_cursor': {'dir': 'd', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y + top_scroll},
+                    'update_cursor': {'dir': 'd', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
                     'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
                 }
             }
