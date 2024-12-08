@@ -8,6 +8,7 @@ class TextModel(BaseModel):
         super().__init__()
         self.lines: List[str] = [""]
         self.max_len = 0#self._observers[0].get_width()
+        self.scroll_top = 0
 
     def update_data(self, update: Dict[str, Any]) -> None:
         text = update.get('text', '')
@@ -23,8 +24,12 @@ class TextModel(BaseModel):
             self.delete_(update['pos_x'], update['pos_y'])
         if 'merge' in update and update['merge'] == 1:
             self.merge_lines(update['pos_y'], update['pos_x'])
-        
+        if 'scroll_down' in update and update['scroll_down'] == 1:
+            self.scroll_down(update['scroll_top'])
         self.notify_observers()
+    
+    def scroll_down(self, scroll_top: int) -> None:
+        self.scroll_top = scroll_top
     
     def merge_lines(self, pos_y: int, pos_x: int) -> None:
         if self.lines[pos_y-1][-1] == '\n':
@@ -60,15 +65,18 @@ class TextModel(BaseModel):
 
     def get_rendered_lines(self) -> tuple[List[str], int]:
         window_width = self._observers[0].get_width()
+        window_height = self._observers[0].get_height()
         rendered_lines = []
         for line in self.lines:
             while len(line) > window_width:
                 rendered_lines.append(line[:window_width])
                 line = line[window_width:]
             rendered_lines.append(line)
-        return (rendered_lines, window_width)
+        return (rendered_lines, window_width, window_height)
     
     def notify_observers(self) -> None:
         for observer in self._observers:
-            text = ''.join(self.lines)
+            _, _, window_height = self.get_rendered_lines()
+            text = ''.join(self.lines[self.scroll_top:self.scroll_top + window_height - 1])
+            #text = ''.join(self.lines)
             observer.update_text(text)

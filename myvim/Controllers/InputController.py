@@ -20,6 +20,7 @@ class InputModeController(IController):
         self.commands[10] = InputCommand(self.base_controller, 'input') #enter
         self.commands[8] = InputCommand(self.base_controller, 'input') #backspace
         self.commands[330] = InputCommand(self.base_controller, 'input') #del
+        self.commands['scroll_down'] = InputCommand(self.base_controller, 'input')
         
     def handle_key(self, key: int) -> str:
         if key in self.commands:
@@ -42,10 +43,10 @@ class InputModeController(IController):
             
             cur_input_x = self.base_controller.models['cursor'].cursor_x
             cur_y = self.base_controller.models['cursor'].cursor_y
-            
+            top_scroll = self.base_controller.models['text'].scroll_top
             cur_posx = self.base_controller.models['cursor'].posx
             cur_posy = self.base_controller.models['cursor'].posy
-            _, window_width = self.base_controller.models['text'].get_rendered_lines()
+            _, window_width, window_height = self.base_controller.models['text'].get_rendered_lines()
             
             # Перенос строки
             cur_input_x += 1
@@ -53,7 +54,15 @@ class InputModeController(IController):
             if cur_input_x == window_width:
                 cur_y += 1
                 cur_input_x = 0
-                
+            
+            if (cur_y + 1) % (window_height - 3) == 0:
+                cur_y -= 1
+                command = self.commands['scroll_down']
+                self.base_controller.models['text'].scroll_top += 1
+                #if self.base_controller.models['text'].lines[cur_posy - 1][-1] == '\n':
+                #    cur_posy -= 1
+                #return command.execute(0)
+            
             return {
                 'model': ['text', 'cursor'],
                 'update': {

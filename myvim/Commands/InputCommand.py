@@ -9,6 +9,8 @@ class InputCommand(ICommand):
         self.mode = mode
 
     def execute(self, key: int) -> str:
+        if key == 0:
+            return self.scroll_down()
         if key == 1:
             return self.move_cursor_up()
         elif key == 2:
@@ -32,8 +34,11 @@ class InputCommand(ICommand):
             pos_x = self.base_controller.models['cursor'].posx
             pos_y = self.base_controller.models['cursor'].posy
             
-            _, window_width = self.base_controller.models['text'].get_rendered_lines()
+            _, window_width, window_height = self.base_controller.models['text'].get_rendered_lines()
             
+            if (cy + 1) % (window_height - 4) == 0: #TODO poch 4?
+                cy -= 1
+                self.base_controller.models['text'].scroll_top += 1
             cx = 0
             cy += 1
             
@@ -55,7 +60,7 @@ class InputCommand(ICommand):
             pos_x = self.base_controller.models['cursor'].posx
             pos_y = self.base_controller.models['cursor'].posy
             tmp = pos_x - 1
-            _, window_width = self.base_controller.models['text'].get_rendered_lines()
+            _, window_width, _ = self.base_controller.models['text'].get_rendered_lines()
 
             if pos_x - 1 >= 0:
                 cx -= 1
@@ -157,13 +162,22 @@ class InputCommand(ICommand):
             }
         }"""
     def move_cursor_up(self):
-        rendered_lines, window_width = self.base_controller.models['text'].get_rendered_lines()
-        lines = self.base_controller.models['text'].lines
+        rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
         cy = self.base_controller.models['cursor'].cursor_y
         cx = self.base_controller.models['cursor'].cursor_x
-        pos_x = self.base_controller.models['cursor'].posx
-        pos_y = self.base_controller.models['cursor'].posy
+        if top_scroll > 0:
+            px = self.base_controller.models['cursor'].posx
+            offset = px // window_width
+            if cy - offset < 3 : #TODO доделать смещение
+                cy -= 1
+                self.base_controller.models['text'].scroll_top -= 1
+                top_scroll -= 1
         
+        lines = self.base_controller.models['text'].lines[top_scroll:]
+        
+        pos_x = self.base_controller.models['cursor'].posx
+        pos_y = self.base_controller.models['cursor'].posy - top_scroll
         if pos_y > 0:
             if pos_x > len(lines[pos_y-1]):
                 if len(lines[pos_y-1]) and lines[pos_y-1][-1] == '\n':
@@ -184,23 +198,31 @@ class InputCommand(ICommand):
             #cx = (pos_x % window_width)
             
             return {
-                'model': ['cursor'], 
+                'model': ['text','cursor'], 
                 'update': {
-                    'update_cursor': {'dir': 'u', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                    'update_cursor': {'dir': 'u', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y + top_scroll},
+                    'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
                 }
             }
-        
-        
+
     def move_cursor_down(self):
-        #window_width = self.base_controller.models['text'].max_len
-        rendered_lines, window_width = self.base_controller.models['text'].get_rendered_lines()
-        lines = self.base_controller.models['text'].lines
         cy = self.base_controller.models['cursor'].cursor_y
         cx = self.base_controller.models['cursor'].cursor_x
-        pos_x = self.base_controller.models['cursor'].posx
-        pos_y = self.base_controller.models['cursor'].posy
+        rendered_lines, window_width, window_height = self.base_controller.models['text'].get_rendered_lines()
+        #TODO доделать смещение
+        offset = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].posy]) // window_width - self.base_controller.models['cursor'].posx // window_width
+        if (cy + 1) % (window_height - 4) == 0: #TODO poch 4?
+            cy -= 1
+            self.base_controller.models['text'].scroll_top += 1
         
-        if pos_y + 1 < len(self.base_controller.models['text'].lines):
+        
+        top_scroll = self.base_controller.models['text'].scroll_top
+        lines = self.base_controller.models['text'].lines[top_scroll:]
+        
+        pos_x = self.base_controller.models['cursor'].posx
+        pos_y = self.base_controller.models['cursor'].posy - top_scroll
+        
+        if pos_y + 1 < len(lines):
             if len(lines[pos_y + 1]) < pos_x:
                 if len(lines[pos_y+1]) and lines[pos_y+1][-1] == '\n':
                     l = len(lines[pos_y+1]) - 1
@@ -220,9 +242,10 @@ class InputCommand(ICommand):
             cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y]) + offset
             
             return {
-                'model': ['cursor'], 
+                'model': ['text', 'cursor'], 
                 'update': {
-                    'update_cursor': {'dir': 'd', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                    'update_cursor': {'dir': 'd', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y + top_scroll},
+                    'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
                 }
             }
         
@@ -231,17 +254,12 @@ class InputCommand(ICommand):
 
     
     def move_cursor_left(self):
-        """pos_x = max(0, self.base_controller.models['cursor'].cursor_x - 1)
-        curr_y = self.base_controller.models['cursor'].cursor_y
-        return {
-            'model': ['cursor'], 
-            'update': {
-                'update_cursor': {'dir': 'l', 'max_x': pos_x, 'dy': curr_y}
-            }
-        }"""
-        _, window_width = self.base_controller.models['text'].get_rendered_lines()
+        _, window_width, window_height = self.base_controller.models['text'].get_rendered_lines()
         cx = self.base_controller.models['cursor'].cursor_x
         cy = self.base_controller.models['cursor'].cursor_y
+        
+        
+        
         pos_x = self.base_controller.models['cursor'].posx
         pos_y = self.base_controller.models['cursor'].posy
         if pos_x - 1 >= 0:
@@ -258,13 +276,11 @@ class InputCommand(ICommand):
             }
 
     def move_cursor_right(self):
-        #len_posy = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].pos_y]) - 1 if self.base_controller.models['cursor'].pos_y < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].pos_y])
-        #pos_x = min(len_posy, self.base_controller.models['cursor'].cursor_x + 1)
-        #curr_y = self.base_controller.models['cursor'].cursor_y
         len_posy = len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].posy]) - 1 if self.base_controller.models['cursor'].posy < len(self.base_controller.models['text'].lines) - 1 else len(self.base_controller.models['text'].lines[self.base_controller.models['cursor'].posy])
-        _, window_width = self.base_controller.models['text'].get_rendered_lines()
+        _, window_width, window_height = self.base_controller.models['text'].get_rendered_lines()
         cx = self.base_controller.models['cursor'].cursor_x
         cy = self.base_controller.models['cursor'].cursor_y
+        
         pos_x = self.base_controller.models['cursor'].posx
         pos_y = self.base_controller.models['cursor'].posy
         if pos_x + 1 <= len_posy:
@@ -273,9 +289,13 @@ class InputCommand(ICommand):
             if cx == window_width:
                 cx = 0
                 cy += 1
+                if (cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                    cy -= 1
+                    self.base_controller.models['text'].scroll_top += 1
             return {
-                'model': ['cursor'], 
+                'model': ['text', 'cursor'], 
                 'update': {
-                    'update_cursor': {'dir': 'r', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y}
+                    'update_cursor': {'dir': 'r', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
+                    'update_text': {'scroll_down': 1, 'scroll_top': self.base_controller.models['text'].scroll_top, 'text': ' '}
                 }
             }

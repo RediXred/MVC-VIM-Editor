@@ -15,3 +15,6 @@ class ViewText(ViewBase):
     
     def get_width(self) -> int:
         return self.get_tui_adapter().width
+    
+    def get_height(self) -> int:
+        return self.get_tui_adapter().height
