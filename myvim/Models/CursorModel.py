@@ -27,7 +27,9 @@ class CursorModel(BaseModel):
 
     def update_data(self, update: Dict[str, Any]) -> None:
         if update:
-            if 'dir' in update:
+            if 'dir' in update and 'switch' in update:
+                self.update_srch(update['dir'], update['cx'], update['cy'], update['pos_x'], update['pos_y'], update['mode'])
+            elif 'dir' in update:
                 self.move_cursor(update['dir'], update['cx'], update['cy'], update['pos_x'], update['pos_y'])
             elif 'switch' in update:
                 self.update_mode_sb(update['mode'])
@@ -36,6 +38,15 @@ class CursorModel(BaseModel):
             raise ValueError(f"Неизвестная операция")
         self.notify_observers()
 
+    def update_srch(self, dir:str, cx: int, cy: int, pos_x: int, pos_y: int, mode: str):
+        self.mode = mode
+        self.cursor_x = cx
+        self.cursor_y = cy
+        self.posx = pos_x
+        self.posy = pos_y
+        self.current_line = self.posy + 1
+        
+    
     def update_mode_sb(self, mode: str):
         if mode == 'search':
             self.old_posx = self.posx

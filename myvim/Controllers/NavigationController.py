@@ -20,6 +20,7 @@ class NavigationModeController(IController):
         self.commands[KEY_RIGHT] = NavigationCommand(self.base_controller, 'navigation')
         self.commands[105] = NavigationCommand(self.base_controller, 'input') # i
         self.commands['/'] = NavigationCommand(self.base_controller, 'search') # /
+        self.commands['?'] = NavigationCommand(self.base_controller, 'search') # ?
         self.commands[94] = NavigationCommand(self.base_controller, 'navigation') # ^
         self.commands[36] = NavigationCommand(self.base_controller, 'navigation') # $
         self.commands["gg"] = NavigationCommand(self.base_controller, 'navigation')
@@ -31,13 +32,25 @@ class NavigationModeController(IController):
         self.commands["yw"] = NavigationCommand(self.base_controller, 'navigation')
         self.commands[98] = NavigationCommand(self.base_controller, 'navigation') #b
         self.commands["p"] = NavigationCommand(self.base_controller, 'navigation') #p
+        self.commands["n"] = NavigationCommand(self.base_controller, 'navigation') #n #TODO
+        self.commands["N"] = NavigationCommand(self.base_controller, 'navigation') #n #TODO
+        self.commands["I"] = NavigationCommand(self.base_controller, 'input')
+        self.commands["A"] = NavigationCommand(self.base_controller, 'input')
+        self.commands["S"] = NavigationCommand(self.base_controller, 'input') #TODO
+        self.commands["r"] = NavigationCommand(self.base_controller, 'input')
         self.commands[119] = NavigationCommand(self.base_controller, 'navigation') #w
         self.commands[120] = NavigationCommand(self.base_controller, 'navigation') #x
-        self.commands[339] = NavigationCommand(self.base_controller, 'navigation') #PGUP 
-        self.commands[338] = NavigationCommand(self.base_controller, 'navigation') #PGDWN
+        self.commands[339] = NavigationCommand(self.base_controller, 'navigation') #PGUP  #TODO
+        self.commands[338] = NavigationCommand(self.base_controller, 'navigation') #PGDWN #TODO
 
     def handle_key(self, key: int) -> str:
         if 32 <= key <= 126:
+            if 'r' in self.cmd:
+                char = chr(key)
+                command = self.commands["r"]
+                self.cmd = ""
+                return command.execute("r", char)
+            
             if key == ord('G') and self.cmd.isdigit():
                 line_number = int(self.cmd)  # Получаем номер строки из команды
                 self.cmd = ""  # Сбрасываем буфер после обработки команды
@@ -52,14 +65,14 @@ class NavigationModeController(IController):
                 self.cmd = self.cmd[-3:]
             
             # Если введённая строка совпадает с командой
-            if self.cmd in self.commands:
+            if self.cmd in self.commands and chr(key) != 'r':
                 command = self.commands[self.cmd]
                 if self.cmd == "p":
                     result = command.execute(self.cmd, self.copystr)
                 else:
                     result = command.execute(self.cmd)
                 self.cmd = ""  # Сбрасываем буфер после выполнения команды
-                if 'update_copystr' in result:
+                if result is not None and 'update_copystr' in result:
                     self.copystr = result['update_copystr']
                 return result
 

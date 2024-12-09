@@ -7,8 +7,10 @@ class TextModel(BaseModel):
     def __init__(self):
         super().__init__()
         self.lines: List[str] = [""]
-        self.max_len = 0#self._observers[0].get_width()
+        self.bar_text = ""
+        self.search_text = ""
         self.scroll_top = 0
+        self.typee = -1
 
     def update_data(self, update: Dict[str, Any]) -> None:
         text = update.get('text', '')
@@ -26,8 +28,25 @@ class TextModel(BaseModel):
             self.scroll_down(update['scroll_top'])
         if 'update_text' in update and update['update_text'] == 1:
             self.update_text(update['text'], update['scroll_top'])
+        if 'input_bar' in update:
+            self.input_bar(update['text'], update['pos_y'], update['pos_x'])
+        if 'update_typee' in update:
+            self.update_typee(update['update_typee'])
         self.notify_observers()
     
+    def update_typee(self, type_: int):
+        self.typee = type_
+        if self.typee == 0:
+            self.bar_text = '/'
+        else:
+            self.bar_text = '?'
+        pass
+    
+    def input_bar(self, text: str, pos_y:int, pos_x:int):
+        if self.typee == 0:
+            self.bar_text = '/' + text
+        else:
+            self.bar_text = '?' + text
     def update_text(self, text, scroll_top) -> None:
         self.lines = text
         self.scroll_top = scroll_top
@@ -80,7 +99,20 @@ class TextModel(BaseModel):
     def notify_observers(self) -> None:
         for observer in self._observers:
             rendered_lines, _, window_height = self.get_rendered_lines()
-            text = ''.join(rendered_lines[self.scroll_top:self.scroll_top + window_height - 1])
+            if self.bar_text:
+                rendered_lines = rendered_lines[self.scroll_top:self.scroll_top + window_height - 1]
+                if len(rendered_lines) >= window_height - 1:
+                    rendered_lines = rendered_lines[:-1]
+                    rendered_lines.append(self.bar_text)
+                else:
+                    k = abs(len(rendered_lines) - window_height + 1)
+                    for _ in range(k):
+                        rendered_lines.append('\n')
+                    rendered_lines.append(self.bar_text)
+                text = ''.join(rendered_lines)
+            else:
+                text = ''.join(rendered_lines[self.scroll_top:self.scroll_top + window_height - 1])
+            self.bar_text = ""
             #text = ''.join(self.lines[self.scroll_top:self.scroll_top + window_height - 1])
             #text = ''.join(self.lines)
             observer.update_text(text)

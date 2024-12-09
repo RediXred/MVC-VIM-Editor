@@ -14,45 +14,28 @@ class SearchModeController(IController):
         self.copystr = ""
 
     def register_commands(self):
-        self.commands[KEY_UP] = SearchCommand(self.base_controller, 'navigation')
         self.commands[27] = SearchCommand(self.base_controller, 'navigation') #esc
-        
+        self.commands[10] = SearchCommand(self.base_controller, 'navigation')
         
     def handle_key(self, key: int) -> str:
-        if 32 <= key <= 126:
-            if key == ord('G') and self.cmd.isdigit():
-                line_number = int(self.cmd)  # Получаем номер строки из команды
-                self.cmd = ""  # Сбрасываем буфер после обработки команды
-                command = self.commands["NG"]
-                # Выполняем переход на строку
-                return command.execute(key, line_number)
-            
-            self.cmd += chr(key)
-
-            # Ограничиваем длину буфера
-            if len(self.cmd) > 3:
-                self.cmd = self.cmd[-3:]
-            
-            # Если введённая строка совпадает с командой
-            if self.cmd in self.commands:
-                command = self.commands[self.cmd]
-                if self.cmd == "p":
-                    result = command.execute(self.cmd, self.copystr)
-                else:
-                    result = command.execute(self.cmd)
-                self.cmd = ""  # Сбрасываем буфер после выполнения команды
-                if 'update_copystr' in result:
-                    self.copystr = result['update_copystr']
-                return result
-
-            # Если команда не может быть продолжена
-            if not any(
-                cmd.startswith(self.cmd) or self.cmd.isdigit()  # Добавляем проверку на цифры
-                for cmd in self.commands if isinstance(cmd, str)
-            ):
-                self.cmd = ""
-
-        # Если это односимвольная команда (число)
-        if key in self.commands and self.cmd == "":
+        if key == 10 or key == 27: #enter
+            t = self.base_controller.models['text'].typee
             command = self.commands[key]
-            return command.execute(key)
+            if key == 10:
+                res = command.execute(key, self.cmd, t)
+            else:
+                res = command.execute(key, self.cmd)
+            self.cmd = ""
+            return res
+        else:
+            self.cmd += chr(key)
+            _, window_width, window_height = self.base_controller.models['text'].get_rendered_lines()
+            pos_y = window_height - 2
+            pos_x = window_width - 10
+            return {
+                'model': ['text', 'cursor'],
+                'update': {
+                    'update_text': {'input_bar': 1, 'text': self.cmd, 'pos_x': pos_x, 'pos_y': pos_y},
+                    'update_cursor': {'nth': 1}
+                }
+            }
