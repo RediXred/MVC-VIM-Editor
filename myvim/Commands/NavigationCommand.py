@@ -2,25 +2,51 @@
 from mymvc.Commands.ICommand import ICommand
 #from ...mymvc.BaseController.BaseController import BaseController
 from mymvc.BaseController.BaseController import BaseController
+from curses import KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT
+
 
 class NavigationCommand(ICommand):
     def __init__(self, base_controller: BaseController, mode: str):
         self.base_controller = base_controller
         self.mode = mode
 
-    def execute(self, key: int) -> str:
-        if key == 1:
+    def execute(self, key, n=-1) -> str:
+        if n != -1 and key != 'p':
+            return self.move_to(n)
+        if key == KEY_UP:
             return self.move_cursor_up()
-        elif key == 2:
+        elif key == KEY_DOWN:
             return self.move_cursor_down()
-        elif key == 3:
+        elif key == KEY_LEFT:
             return self.move_cursor_left()
-        elif key == 4:
+        elif key == KEY_RIGHT:
             return self.move_cursor_right()
-        elif key == 48:
+        elif key == "gg":
             return self.scroll_up()
+        elif key == "G":
+            return self.scroll_down()
+        elif key == "diw":
+            return self.delete_word_under_cursor()
         elif key == 36:
             return self.at_end()
+        elif key == 94:
+            return self.at_start()
+        elif key == 338:
+            return self.pgdown()
+        elif key == 98:
+            return self.move_cursor_to_previous_word()
+        elif key == 119:
+            return self.move_cursor_to_next_word()
+        elif key == 120:
+            return self.delete_character_after_cursor()
+        elif key == "dd":
+            return self.cut_current_line()
+        elif key == "yy":
+            return self.copy_current_line()
+        elif key == "yw":
+            return self.copy_current_word()
+        elif key == "p" and n != -1:
+            return self.paste(n)
         elif key == 105:
             self.base_controller.switch_controller(self.mode)
             return {'model': ['cursor'], 
@@ -28,45 +54,552 @@ class NavigationCommand(ICommand):
                         'update_cursor': {'switch': 1, 'mode': self.mode}
                         }
                     }
-        else:
-            return {'model': None, 'update': None}
+        elif key == '/':
+            self.base_controller.switch_controller(self.mode)
+            return {'model': ['cursor'], 
+                    'update': {
+                        'update_cursor': {'switch': 1, 'mode': self.mode}
+                        }
+                    }
+            
+    def paste(self, copystr):
+        lines = self.base_controller.models['text'].lines
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
+        py = self.base_controller.models['cursor'].cursor_y
+        px = self.base_controller.models['cursor'].cursor_x
+        top_scroll = self.base_controller.models['text'].scroll_top
+        # Проверяем, что текущая строка не пуста
+        if pos_y < len(lines):
+            current_line = lines[pos_y]
+
+            while pos_x < len(current_line):
+                pos_x += 1
+                px += 1
+                if px == window_width:
+                    py += 1
+                    px = 0
+                    if py > 4:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py -= 1
+                        top_scroll += 1
+            lines[pos_y] = lines[pos_y].rstrip('\n')
+            lines[pos_y] += '\n'
+            copystr = copystr.rstrip('\n')
+            if pos_y < len(lines) - 1:
+                copystr += '\n'
+            lines.insert(pos_y + 1, copystr)
+            pos_y += 1
+            pos_x = 0
+            px = 0
+            py += 1
+            if py > 4:
+                py -= 1
+                top_scroll += 1
+            self.base_controller.models['cursor'].total_lines += 1
+
+        # Обновляем позицию курсора
+        self.base_controller.models['cursor'].posx = pos_x
+        self.base_controller.models['cursor'].posy = pos_y
+
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_text': {'update_text': 1, 'text': lines, 'scroll_top': top_scroll},
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y}
+            }          
+        }
     
-    def at_end(self):
+    def copy_current_word(self):
+        lines = self.base_controller.models['text'].lines
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        px = self.base_controller.models['cursor'].cursor_x
+        py = self.base_controller.models['cursor'].cursor_y
+        _, window_width, _ = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
+        
+        current_line = lines[pos_y]
+        end_pos = pos_x
+        start_pos = pos_x
+        while end_pos < len(current_line) and not current_line[end_pos].isspace():
+            end_pos += 1
+        while start_pos > 0 and not current_line[start_pos].isspace():
+            start_pos -= 1
+        
+        copystr = current_line[start_pos:end_pos]
+        copystr = copystr.strip(' ')
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_text': {'update_text': 1, 'text': lines, 'scroll_top': top_scroll},
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y}
+            },
+            'update_copystr': copystr            
+        }
+        
+    def copy_current_line(self):
+        lines = self.base_controller.models['text'].lines
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        px = self.base_controller.models['cursor'].cursor_x
+        py = self.base_controller.models['cursor'].cursor_y
+        _, window_width, _ = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
+        
+        copystr = lines[pos_y]
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_text': {'update_text': 1, 'text': lines, 'scroll_top': top_scroll},
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y}
+            },
+            'update_copystr': copystr            
+        }
+        
+    def cut_current_line(self):
+        lines = self.base_controller.models['text'].lines
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        px = self.base_controller.models['cursor'].cursor_x
+        py = self.base_controller.models['cursor'].cursor_y
+        _, window_width, _ = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
+        # Проверяем, что есть строки для удаления
+        if pos_y < len(lines):
+            current_line = lines[pos_y].rstrip('\n')
+            while pos_x > 0: #and not current_line[pos_x - 1].isspace():
+                pos_x -= 1  # Двигаемся к началу слова
+                px -= 1
+                if px == -1:
+                    py -= 1
+                    px = window_width - 1
+                    if py <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py += 1
+                        top_scroll -= 1
+            # Удаляем текущую строку
+            copy = lines[pos_y]
+            del lines[pos_y]
+            self.base_controller.models['cursor'].total_lines = max(0, self.base_controller.models['cursor'].total_lines - 1)
+            if pos_y > 0:
+                pos_y -= 1
+                py -= 1
+                
+            if len(lines) == 0:
+                #pos_y += 1
+                #py += 1
+                lines.append('')
+                self.base_controller.models['cursor'].total_lines += 1
+            if pos_y == 0 and len(lines) == 1:
+                lines[pos_y] = lines[pos_y].rstrip('\n')
+                pos_x = len(lines[pos_y].rstrip('\n'))
+                px = pos_x % window_width
+            else:
+                if pos_y + 1 >= len(lines):
+                    lines[pos_y] = lines[pos_y].rstrip('\n')
+                pos_x = len(lines[pos_y].rstrip('\n'))
+                px = pos_x % window_width
+                if top_scroll > 0:
+                    top_scroll -= 1
+                    py += 1                
+        # Обновляем модели
+        self.base_controller.models['cursor'].posx = pos_x
+        self.base_controller.models['cursor'].posy = pos_y
+
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_text': {'update_text': 1, 'text': lines, 'scroll_top': top_scroll},
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y}
+            },
+            'update_copystr': copy            
+        }
+
+    
+    def delete_word_under_cursor(self):
+        lines = self.base_controller.models['text'].lines
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        top_scroll = self.base_controller.models['text'].scroll_top
+        px = self.base_controller.models['cursor'].cursor_x
+        py = self.base_controller.models['cursor'].cursor_y
+        _, window_width, _ = self.base_controller.models['text'].get_rendered_lines()
+
+        # Проверяем, что текущая строка не пуста
+        if pos_y < len(lines):
+            current_line = lines[pos_y]
+            
+            # Находим конец текущего слова
+            end_pos = pos_x
+            start_pos = pos_x
+            while end_pos < len(current_line) and not current_line[end_pos].isspace():
+                end_pos += 1
+            while start_pos > 0 and not current_line[start_pos].isspace():
+                start_pos -= 1
+                px -= 1
+                if px == -1:
+                    py -= 1
+                    px = window_width - 1
+                    if py <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py += 1
+                        top_scroll -= 1
+            # Пропускаем пробелы после слова
+            while end_pos < len(current_line) and current_line[end_pos].isspace():
+                end_pos += 1
+            
+            while start_pos > 0 and not current_line[start_pos].isspace():
+                start_pos -= 1
+                px -= 1
+                if px == -1:
+                    py -= 1
+                    px = window_width - 1
+                    if py <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py += 1
+                        top_scroll -= 1
+
+            # Удаляем слово и пробелы справа
+            lines[pos_y] = current_line[:start_pos] + current_line[end_pos:]
+            
+            if not lines[pos_y].strip():
+                if pos_y > 0:  # Переход на предыдущую строку, если она существует
+                    lines.pop(pos_y)
+                    pos_y -= 1
+                    pos_x = len(lines[pos_y].rstrip('\n'))  # В конец предыдущей строки
+                    self.base_controller.models['cursor'].total_lines -= 1
+                    self.base_controller.models['cursor'].current_line -= 1
+                    py -= 1
+                    px = pos_x % window_width
+                else:
+                    pos_x = 0  # Если строка единственная, курсор в начало
+                    px = 0
+                    py = 0
+            else:
+                pos_x = min(pos_x, len(lines[pos_y]))  # Убедиться, что курсор не выходит за пределы строки
+                px = pos_x % window_width
+
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_text': {'text': lines, 'update_text': 1, 'scroll_top': top_scroll},
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y}
+            }
+        }
+    
+    def delete_character_after_cursor(self):
+        lines = self.base_controller.models['text'].lines
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        top_scroll = self.base_controller.models['text'].scroll_top
+        px = self.base_controller.models['cursor'].cursor_x
+        py = self.base_controller.models['cursor'].cursor_y
+        # Проверяем, что текущая строка не пуста
+        if pos_y < len(lines):
+            current_line = lines[pos_y]
+
+            # Если курсор не в конце строки, удаляем символ после курсора
+            if pos_x < len(current_line.rstrip('\n')):
+                lines[pos_y] = current_line[:pos_x] + current_line[pos_x + 1:]
+            elif pos_y < len(lines) - 1:  # Если курсор в конце строки, соединяем с следующей строкой
+                next_line = lines[pos_y + 1]
+                lines[pos_y] = current_line.rstrip('\n') + next_line
+                del lines[pos_y + 1]
+                self.base_controller.models['cursor'].total_lines -= 1
+
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_text': {'text': ' ', 'scroll_down': 1, 'scroll_top': top_scroll},
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y}
+            }
+        }
+    
+    def move_cursor_to_next_word(self):
+        lines = self.base_controller.models['text'].lines
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
+        py = self.base_controller.models['cursor'].cursor_y
+        px = self.base_controller.models['cursor'].cursor_x
+        top_scroll = self.base_controller.models['text'].scroll_top
+        # Проверяем, что текущая строка не пуста
+        if pos_y < len(lines):
+            current_line = lines[pos_y]
+
+            # Если курсор находится в конце строки, переходим на следующую строку
+            """if pos_x >= len(current_line.rstrip('\n')):
+                if pos_y < len(lines) - 1:
+                    pos_y += 1
+                    current_line = lines[pos_y]
+                    pos_x = 0  # В начало следующей строки
+                else:
+                    return  # Курсор уже в самом конце текста"""
+
+            # Перемещаем курсор к концу текущего или следующего слова
+            while pos_x < len(current_line) and not current_line[pos_x].isspace():
+                pos_x += 1  # Двигаемся к концу слова
+                px += 1
+                if px == window_width:
+                    py += 1
+                    px = 0
+                    if py > 4:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py -= 1
+                        top_scroll += 1
+
+            while pos_x < len(current_line) and current_line[pos_x].isspace():
+                pos_x += 1  # Пропускаем пробелы справа
+                px += 1
+                if px == window_width:
+                    py += 1
+                    px = 0
+                    if py > 4:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py -= 1
+                        top_scroll += 1
+
+        # Обновляем позицию курсора
+        self.base_controller.models['cursor'].posx = pos_x
+        self.base_controller.models['cursor'].posy = pos_y
+
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y},
+                'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
+            }
+        }
+    
+    def move_cursor_to_previous_word(self):
+        lines = self.base_controller.models['text'].lines
+        pos_x = self.base_controller.models['cursor'].posx  # Текущая позиция по горизонтали
+        pos_y = self.base_controller.models['cursor'].posy  # Текущая позиция по вертикали
+        rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
+        py = self.base_controller.models['cursor'].cursor_y
+        px = self.base_controller.models['cursor'].cursor_x
+        top_scroll = self.base_controller.models['text'].scroll_top
+        # Проверяем, что текущая строка не пуста
+        if pos_y < len(lines):
+            current_line = lines[pos_y]
+            
+            # Если курсор находится в начале строки, переходим на предыдущую строку
+            """if pos_x == 0:
+                if py > 0:
+                    pos_y -= 1
+                    current_line = lines[pos_y]
+                    pos_x = len(current_line.rstrip('\n'))  # В конец строки без символа переноса
+                    py -= 1"""
+
+            # Перемещаем курсор в начало текущего или предыдущего слова
+            while pos_x > 0 and current_line[pos_x - 1].isspace():
+                pos_x -= 1  # Пропускаем пробелы слева
+                px -= 1
+                if px == -1:
+                    py -= 1
+                    px = window_width - 1
+                    if py <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py += 1
+                        top_scroll -= 1
+
+            while pos_x > 0 and not current_line[pos_x - 1].isspace():
+                pos_x -= 1  # Двигаемся к началу слова
+                px -= 1
+                if px == -1:
+                    py -= 1
+                    px = window_width - 1
+                    if py <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py += 1
+                        top_scroll -= 1
+        # Обновляем позицию курсора
+        #self.base_controller.models['cursor'].posx = pos_x
+        #self.base_controller.models['cursor'].posy = pos_y
+
+        return {
+            'model': ['text', 'cursor'],
+            'update': {
+                'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y},
+                'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
+            }
+        }
+
+    
+    def pgdown(self):
+        #TODO доделать
         rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
         top_scroll = self.base_controller.models['text'].scroll_top
         lines = self.base_controller.models['text'].lines
         cy = self.base_controller.models['cursor'].cursor_y
         cx = self.base_controller.models['cursor'].cursor_x
         pos_y = self.base_controller.models['cursor'].posy
-        pos_x = len(self.base_controller.models['text'].lines[pos_y]) - 1 if self.base_controller.models['text'].lines[pos_y][-1]=='\n' else len(self.base_controller.models['text'].lines[pos_y])
+        pos_x = self.base_controller.models['cursor'].posx
+        
+        new_scroll = top_scroll + height
+
+        max_scroll = max(0, len(rendered_lines) - height - 1)
+        new_scroll = min(new_scroll, max_scroll)
+        i = pos_y
+        py = (len(lines[i]) + window_width - 1) // window_width
+        px = len(lines[i]) - 1 if lines[i][-1]=='\n' else len(lines[i])
+        while py < height + 4 - 1:
+            i += 1
+            py += (len(lines[i]) + window_width - 1) // window_width
+            px = len(lines[i]) - 1 if lines[i][-1]=='\n' else len(lines[i])
+            if py > height:
+                break
+        if i != pos_y:
+            pos_y = i
+            pos_x = px
+            cx = pos_x % window_width
+        top_scroll = new_scroll
+        
         rendered_lines = rendered_lines[top_scroll:top_scroll + height - 1]
-        if self.base_controller.models['cursor'].posx < len(lines[pos_y]):
-            if pos_x > window_width:
-                cx = pos_x % window_width
-                #k = len(rendered_lines) - 1
-                #cy = k
-                visual_line_count = (pos_x + window_width - 1) // window_width
-                cy = sum((len(lines[i]) + window_width - 1) // window_width for i in range(pos_y))
-                if visual_line_count > 1:
-                    cy += visual_line_count - 1
-                if cy >= (height - 4):
-                    l = len(self.base_controller.models['text'].lines[pos_y])
-                    if l > window_width:
-                        k = (l + window_width - 1) // window_width
-                        off = (self.base_controller.models['cursor'].posx // window_width + 1)
-                        top_scroll += k - (k - off)
-                    #top_scroll += cy - visual_line_count
-                    cy = height - 4 - 1 
-                
-            else:
-                cx = pos_x
-            return {
+        
+        if len(rendered_lines) > height - 4:
+            cy = height - 4 - 1
+            
+            #top_scroll = cy
+            #top_scroll -= height - 4 - 1
+            #top_scroll = 0 if top_scroll < 0 else top_scroll
+            #if top_scroll != 0:
+            #    cy = height - 4 - 1
+        
+        
+        return {
                     'model': ['text','cursor'], 
                     'update': {
-                        'update_cursor': {'dir': 'r', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
+                        'update_cursor': {'dir': 'NG', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
                         'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
                     }
                 }
+        
+        
+        
+    
+    def move_to(self, n):
+        n -= 1
+        rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
+        lines = self.base_controller.models['text'].lines
+        cy = self.base_controller.models['cursor'].cursor_y
+        cx = self.base_controller.models['cursor'].cursor_x
+        pos_y = self.base_controller.models['cursor'].posy
+        pos_x = self.base_controller.models['cursor'].posx
+        if n <= len(lines) - 1 and n >= 0:
+            pos_y = n
+            cy = sum((len(line) + window_width - 1) // window_width for line in lines[:pos_y])
+            cx = 0
+            pos_x = 0
+            
+            if len(rendered_lines) > height - 4:
+                
+                top_scroll = cy
+                top_scroll -= height - 4 - 1
+                top_scroll = 0 if top_scroll < 0 else top_scroll
+                if top_scroll != 0:
+                    cy = height - 4 - 1
+            
+        
+            
+            return {
+                    'model': ['text','cursor'], 
+                    'update': {
+                        'update_cursor': {'dir': 'NG', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
+                        'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
+                    }
+                }
+    
+    def scroll_down(self):
+        rendered_lines, window_width, height = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
+        lines = self.base_controller.models['text'].lines
+        cy = self.base_controller.models['cursor'].cursor_y
+        cx = self.base_controller.models['cursor'].cursor_x
+        pos_y = self.base_controller.models['cursor'].posy
+        pos_x = self.base_controller.models['cursor'].posx
+        
+        
+        cy = len(rendered_lines) - 1
+        cx = len(rendered_lines[cy]) - 1 if rendered_lines[cy][-1]=='\n' else len(rendered_lines[cy])
+        
+        pos_y = len(lines) - 1
+        pos_x = len(lines[pos_y]) - 1 if lines[pos_y][-1]=='\n' else len(lines[pos_y])
+        
+        if len(rendered_lines) > height - 4:
+            top_scroll = cy
+            top_scroll -= height - 4 - 1
+            cy = height - 4 - 1
+            
+        return {
+                'model': ['text','cursor'], 
+                'update': {
+                    'update_cursor': {'dir': 'G', 'cx': cx, 'cy': cy, 'pos_x': pos_x, 'pos_y': pos_y},
+                    'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
+                }
+            }
+    
+    def at_start(self):
+        _, window_width, _ = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
+        lines = self.base_controller.models['text'].lines
+        py = self.base_controller.models['cursor'].cursor_y
+        px = self.base_controller.models['cursor'].cursor_x
+        pos_y = self.base_controller.models['cursor'].posy
+        pos_x = self.base_controller.models['cursor'].posx
+        if pos_y < len(lines):
+            current_line = lines[pos_y].rstrip('\n')
+
+            while pos_x > 0 and not current_line[pos_x - 1].isspace():
+                pos_x -= 1  # Двигаемся к началу слова
+                px -= 1
+                if px == -1:
+                    py -= 1
+                    px = window_width - 1
+                    if py <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py += 1
+                        top_scroll -= 1
+
+            # Обновляем позицию курсора
+            self.base_controller.models['cursor'].posx = pos_x
+            self.base_controller.models['cursor'].posy = pos_y
+
+            return {
+                'model': ['text', 'cursor'],
+                'update': {
+                    'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y},
+                    'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
+                }
+            }
+    
+    def at_end(self):
+        _, window_width, _ = self.base_controller.models['text'].get_rendered_lines()
+        top_scroll = self.base_controller.models['text'].scroll_top
+        lines = self.base_controller.models['text'].lines
+        py = self.base_controller.models['cursor'].cursor_y
+        px = self.base_controller.models['cursor'].cursor_x
+        pos_y = self.base_controller.models['cursor'].posy
+        pos_x = self.base_controller.models['cursor'].posx
+        if pos_y < len(lines):
+            current_line = lines[pos_y].rstrip('\n')
+
+            while pos_x < len(current_line): #and current_line[pos_x].isspace():
+                pos_x += 1  # Пропускаем пробелы справа
+                px += 1
+                if px == window_width:
+                    py += 1
+                    px = 0
+                    if py > 4:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                        py -= 1
+                        top_scroll += 1
+
+            # Обновляем позицию курсора
+            self.base_controller.models['cursor'].posx = pos_x
+            self.base_controller.models['cursor'].posy = pos_y
+
+            return {
+                'model': ['text', 'cursor'],
+                'update': {
+                    'update_cursor': {'dir': 'B', 'cx': px, 'cy': py, 'pos_x': pos_x, 'pos_y': pos_y},
+                    'update_text': {'scroll_down': 1, 'scroll_top': top_scroll, 'text': ' '}
+                }
+            }
+        
     
     def scroll_up(self):
         return {
@@ -246,7 +779,7 @@ class NavigationCommand(ICommand):
             if cx == -1:
                 cx = window_width - 1
                 cy -= 1
-                if cy <= 4:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                if cy <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
                     cy += 1
                     top_scroll -= 1
             return {

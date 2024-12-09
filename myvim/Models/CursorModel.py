@@ -15,6 +15,11 @@ class CursorModel(BaseModel):
         self.posx: int = 0
         self.posy: int = 0
         
+        self.old_posx = 0
+        self.old_posy = 0
+        self.old_cx = 0
+        self.old_cy = 0
+        
         self.mode: str = "Navigation"
         self.file_name: str = "Untitled" 
         self.current_line: int = 1  
@@ -32,7 +37,19 @@ class CursorModel(BaseModel):
         self.notify_observers()
 
     def update_mode_sb(self, mode: str):
-        self.mode = mode
+        if mode == 'search':
+            self.old_posx = self.posx
+            self.old_posy = self.posy
+            self.old_cx = self.cursor_x
+            self.old_cy = self.cursor_y
+            self.mode = mode
+        else:
+            if self.mode == 'search':
+                self.posx = self.old_posx
+                self.posy = self.old_posy
+                self.cursor_x = self.old_cx
+                self.cursor_y = self.old_cy   
+            self.mode = mode
 
     def move_cursor(self, dir:str, cx: int, cy: int, pos_x: int, pos_y: int) -> None:
         if dir == 'r':
@@ -70,6 +87,25 @@ class CursorModel(BaseModel):
             self.cursor_y = cy
             self.posx = pos_x
             self.posy = pos_y
+        if dir == 'G':
+            self.current_line = self.total_lines
+            self.cursor_x = cx
+            self.cursor_y = cy
+            self.posx = pos_x
+            self.posy = pos_y
+        if dir == 'NG':
+            self.cursor_x = cx
+            self.cursor_y = cy
+            self.posx = pos_x
+            self.posy = pos_y
+            self.current_line = self.posy + 1
+        if dir == 'B':
+            self.cursor_x = cx
+            self.cursor_y = cy
+            self.posx = pos_x
+            self.posy = pos_y
+            self.current_line = self.posy + 1
+
         """self.cursor_y = dy
         self.cursor_x = min(self.cursor_x, max_x)
         if dir == 'r':

@@ -1,12 +1,12 @@
 #from ...mymvc.BaseController.IController import IController
 from mymvc.BaseController.IController import IController
-from ..Commands.NavigationCommand import NavigationCommand
+from ..Commands.SearchCommand import SearchCommand
 #from ...mymvc.BaseController.BaseController import BaseController
 from mymvc.BaseController.BaseController import BaseController
 
 from curses import KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT
 
-class NavigationModeController(IController):
+class SearchModeController(IController):
     def __init__(self, base_controller: BaseController):
         self.base_controller = base_controller
         self.commands = {}
@@ -14,28 +14,10 @@ class NavigationModeController(IController):
         self.copystr = ""
 
     def register_commands(self):
-        self.commands[KEY_UP] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands[KEY_DOWN] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands[KEY_LEFT] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands[KEY_RIGHT] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands[105] = NavigationCommand(self.base_controller, 'input') # i
-        self.commands['/'] = NavigationCommand(self.base_controller, 'search') # /
-        self.commands[94] = NavigationCommand(self.base_controller, 'navigation') # ^
-        self.commands[36] = NavigationCommand(self.base_controller, 'navigation') # $
-        self.commands["gg"] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands["G"] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands["NG"] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands["diw"] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands["dd"] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands["yy"] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands["yw"] = NavigationCommand(self.base_controller, 'navigation')
-        self.commands[98] = NavigationCommand(self.base_controller, 'navigation') #b
-        self.commands["p"] = NavigationCommand(self.base_controller, 'navigation') #p
-        self.commands[119] = NavigationCommand(self.base_controller, 'navigation') #w
-        self.commands[120] = NavigationCommand(self.base_controller, 'navigation') #x
-        self.commands[339] = NavigationCommand(self.base_controller, 'navigation') #PGUP 
-        self.commands[338] = NavigationCommand(self.base_controller, 'navigation') #PGDWN
-
+        self.commands[KEY_UP] = SearchCommand(self.base_controller, 'navigation')
+        self.commands[27] = SearchCommand(self.base_controller, 'navigation') #esc
+        
+        
     def handle_key(self, key: int) -> str:
         if 32 <= key <= 126:
             if key == ord('G') and self.cmd.isdigit():

@@ -12,6 +12,7 @@ from myvim.input.InputConsole import InputConsole
 
 from myvim.Controllers.NavigationController import NavigationModeController
 from myvim.Controllers.InputController import InputModeController
+from myvim.Controllers.SearchController import SearchModeController
 
 from mymvc.BaseController.BaseController import BaseController
 
@@ -46,6 +47,8 @@ def main(stdscr: curses.window) -> None:
     
     base_controller.add_controller('navigation', NavigationModeController(base_controller))
     base_controller.add_controller('input', InputModeController(base_controller))
+    base_controller.add_controller('search', SearchModeController(base_controller))
+    
     
     base_controller.add_model('text', text_model)
     base_controller.add_model('cursor', cursor_model)

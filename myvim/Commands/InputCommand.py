@@ -319,7 +319,7 @@ class InputCommand(ICommand):
             if cx == -1:
                 cx = window_width - 1
                 cy -= 1
-                if cy <= 4:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
+                if cy <= 4 and top_scroll > 0:#(cy + 1) % (window_height - 3) == 0: #TODO poch 3?
                     cy += 1
                     top_scroll -= 1
             return {

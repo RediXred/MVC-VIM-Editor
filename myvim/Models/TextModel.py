@@ -12,8 +12,6 @@ class TextModel(BaseModel):
 
     def update_data(self, update: Dict[str, Any]) -> None:
         text = update.get('text', '')
-        if not text:
-            return
         if 'input' in update and update['input'] == 1:
             self.insert_text(text, update['pos_x'], update['pos_y'])
         if 'enter' in update and update['enter'] == 1:
@@ -26,8 +24,13 @@ class TextModel(BaseModel):
             self.merge_lines(update['pos_y'], update['pos_x'])
         if 'scroll_down' in update and update['scroll_down'] == 1:
             self.scroll_down(update['scroll_top'])
+        if 'update_text' in update and update['update_text'] == 1:
+            self.update_text(update['text'], update['scroll_top'])
         self.notify_observers()
     
+    def update_text(self, text, scroll_top) -> None:
+        self.lines = text
+        self.scroll_top = scroll_top
     def scroll_down(self, scroll_top: int) -> None:
         self.scroll_top = scroll_top
     
